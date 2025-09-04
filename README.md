@@ -51,7 +51,7 @@ python main.py --dir /path/to/images --method akaze
 
 #### LoFTR Method
 ```bash
-python main.py --dir /path/to/images --method loftr
+python main.py --pairs_csv /path/to/csv --method loftr
 ```
 
 #### Lightglue Method
@@ -66,13 +66,14 @@ python main.py --dir ./images --method loftr --csv_dir ./results --num_top_kp 20
 
 ## Command Line Arguments
 
-| Argument          | Type | Required | Default       | Description                                                    |
-|-------------------|------|----------|---------------|----------------------------------------------------------------|
-| `--dir`           | str  | ✅ | -             | Directory containing input images                              |
-| `--method`        | str  | ❌ | `akaze`       | Feature matching method (`akaze`, `loftr` or `lightglue`)      |
-| `--csv_dir`       | str  | ❌ | `matches_csv` | Directory to save output CSV files                             |
-| `--num_top_kp`    | int  | ❌ | `None`        | Number of keypoints with highest confidence to keep in the CSV |
-| `--num_bottom_kp` | int  | ❌ | `None`        | Number of keypoints with lowest confidence to keep in the CSV  |
+| Argument          | Type | Required              | Default       | Description                                                    |
+|-------------------|------|-----------------------|---------------|----------------------------------------------------------------|
+| `--dir`           | str  | ✅ if no `--pairs_csv` | -             | Directory containing input images                              |
+| `--method`        | str  | ❌                     | `akaze`       | Feature matching method (`akaze`, `loftr` or `lightglue`)      |
+| `--csv_dir`       | str  | ❌                     | `matches_csv` | Directory to save output CSV files                             |
+| `--pairs_csv`     | str  | ✅ if no `--dir`       | -             | CSV file with columns image1_path,image2_path for pairwise matching                          |
+| `--num_top_kp`    | int  | ❌                     | `None`        | Number of keypoints with highest confidence to keep in the CSV |
+| `--num_bottom_kp` | int  | ❌                     | `None`        | Number of keypoints with lowest confidence to keep in the CSV  |
 
 ## Output Format
 
@@ -80,7 +81,7 @@ python main.py --dir ./images --method loftr --csv_dir ./results --num_top_kp 20
 
 #### AKAZE Output
 ```
-uuid, image1_index, image2_index, pair_id, method, x1, y1, x2, y2, confidence, desc1_0, desc1_1, ..., desc2_0, desc2_1, ..., r11, r12, r13, tx, r21, r22, r23, ty, r31, r32, r33, tz, h41, h42, h43, h44
+uuid, image1_index, image2_index, pair_id, method, x1, y1, x2, y2, confidence, r11, r12, r13, tx, r21, r22, r23, ty, r31, r32, r33, tz, h41, h42, h43, h44
 ```
 
 #### LoFTR Output  
@@ -90,7 +91,7 @@ uuid, image1_index, image2_index, pair_id, method, x1, y1, x2, y2, confidence, r
 
 #### Lightglue Output
 ```
-uuid, image1_index, image2_index, pair_id, method, x1, y1, x2, y2, confidence, desc1_0, desc1_1, ..., desc2_0, desc2_1, ..., r11, r12, r13, tx, r21, r22, r23, ty, r31, r32, r33, tz, h41, h42, h43, h44
+uuid, image1_index, image2_index, pair_id, method, x1, y1, x2, y2, confidence, r11, r12, r13, tx, r21, r22, r23, ty, r31, r32, r33, tz, h41, h42, h43, h44
 ```
 
 ### Column Descriptions
@@ -101,7 +102,6 @@ uuid, image1_index, image2_index, pair_id, method, x1, y1, x2, y2, confidence, d
 - `x1, y1`: Keypoint coordinates in first image
 - `x2, y2`: Keypoint coordinates in second image 
 - `confidence`
-- `desc1_*`, `desc2_*`: Feature descriptors (AKAZE and Lightglue only)
 - `r11-r33, tx, ty, tz`: Homography matrix elements
 - `h41-h44`: Additional homography matrix elements
 

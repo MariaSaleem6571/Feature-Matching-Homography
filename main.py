@@ -1,15 +1,15 @@
 import os
 import argparse
 from natsort import natsorted
-import cv2
 from registration_utils import *
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Feature matching for consecutive images in a directory")
-    parser.add_argument("--dir", type=str, required=True, help="Directory containing images")
+    parser = argparse.ArgumentParser(description="Feature matching for images")
+    parser.add_argument("--dir", type=str, help="Directory containing images (consecutive matching)")
+    parser.add_argument("--pairs_csv", type=str, help="CSV file with columns image1_path,image2_path for pairwise matching")
     parser.add_argument("--csv_dir", type=str, default="matches_csv", help="Directory to save CSVs")
-    parser.add_argument("--vis_dir", type=str, default="matches_visualizations", help="Directory to save match visualizations")
+    parser.add_argument("--vis_dir", type=str, default="visualizations", help="Directory to save match visualizations")
     parser.add_argument("--method", type=str, choices=['akaze', 'loftr', 'lightglue'], default='akaze',
                         help="Feature matching method: 'akaze', 'loftr', or 'lightglue' (default: akaze)")
     parser.add_argument("--num_top_kp", type=int, default=None, help="Number of keypoints with highest confidence to keep")
@@ -19,6 +19,22 @@ def main():
     os.makedirs(args.csv_dir, exist_ok=True)
     os.makedirs(args.vis_dir, exist_ok=True)
 
+    if args.pairs_csv:
+        print(f"Processing image pairs from CSV: {args.pairs_csv}")
+        process_image_pairs_from_csv(
+            csv_file=args.pairs_csv,
+            output_csv_dir=args.csv_dir,
+            output_vis_dir=args.vis_dir,
+            method=args.method,
+            num_top_kp=args.num_top_kp,
+            num_bottom_kp=args.num_bottom_kp
+        )
+        return
+
+    if not args.dir:
+        print("Please provide either --dir or --pairs_csv")
+        return
+
     image_files = [f for f in os.listdir(args.dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
     image_files = natsorted(image_files)
 
@@ -26,7 +42,7 @@ def main():
         print("Need at least 2 images in the directory.")
         return
 
-    print(f"Using {args.method.upper()} method for feature matching")
+    print(f"Using {args.method.upper()} method for feature matching (folder mode)")
 
     for i in range(len(image_files) - 1):
         img1_path = os.path.join(args.dir, image_files[i])

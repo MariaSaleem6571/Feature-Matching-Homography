@@ -6,6 +6,7 @@ from kornia.feature import LoFTR
 import torch
 from LightGlue.lightglue import LightGlue
 from LightGlue.lightglue.superpoint import SuperPoint
+import os
 
 
 def load_image(path, grayscale=True):
@@ -140,13 +141,14 @@ def compute_4x4_homography_from_matches(mkpts0, mkpts1):
             H4[:3, 3] = H[:, 2]
     return H4
 
+
 def create_csv_rows_with_confidence_selection(kp1, kp2, matches, confidences, H4, image_files, i, method, num_top_kp=None, num_bottom_kp=None):
     """
     Select top and bottom keypoints by confidence, and sort all selected keypoints
     in descending order of confidence for CSV output.
     """
     confidences = np.array(confidences)
-    sorted_indices = np.argsort(confidences)[::-1]  # descending order
+    sorted_indices = np.argsort(confidences)[::-1]
 
     selected_indices = []
 
@@ -157,7 +159,6 @@ def create_csv_rows_with_confidence_selection(kp1, kp2, matches, confidences, H4
 
     selected_indices = np.unique(selected_indices)
     selected_confidences = confidences[selected_indices]
-    # Re-sort selected keypoints in descending order of confidence
     final_order = selected_indices[np.argsort(selected_confidences)[::-1]]
 
     rows = []
@@ -203,3 +204,58 @@ def draw_matches(img1, img2, kp1, kp2, matches, mask=None):
     matchesMask = mask.ravel().tolist() if mask is not None else None
     return cv2.drawMatches(img1, kp1, img2, kp2, matches, None, matchesMask=matchesMask,
                            flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+
+
+def process_image_pairs_from_csv(csv_file, output_csv_dir, output_vis_dir, method='akaze', num_top_kp=None, num_bottom_kp=None):
+    os.makedirs(output_csv_dir, exist_ok=True)
+    os.makedirs(output_vis_dir, exist_ok=True)
+
+    with open(csv_file, 'r', newline='') as f:
+        reader = csv.DictReader(f)
+        pairs = list(reader)
+
+    for idx, pair in enumerate(pairs):
+        img1_path = pair['image1']
+        img2_path = pair['image2']
+
+        img1 = load_image(img1_path)
+        img2 = load_image(img2_path)
+
+        if method == 'akaze':
+            kp1 = detect_and_compute(img1)
+            kp2 = detect_and_compute(img2)
+            detector = cv2.AKAZE_create()
+            _, desc1 = detector.compute(img1, kp1)
+            _, desc2 = detector.compute(img2, kp2)
+            matches, confidences = match_keypoints(desc1, desc2)
+            mkpts0 = [kp1[m.queryIdx].pt for m in matches]
+            mkpts1 = [kp2[m.trainIdx].pt for m in matches]
+
+        elif method == 'loftr':
+            kp1, kp2, matches, mkpts0, mkpts1, confidences = detect_and_match_loftr(img1, img2)
+
+        elif method == 'lightglue':
+            kp1, kp2, matches, mkpts0, mkpts1, confidences = detect_and_match_lightglue_superpoint(img1, img2)
+            if len(matches) == 0:
+                print(f"Warning: No matches found for pair {idx + 1}")
+                continue
+
+        H4 = compute_4x4_homography_from_matches(mkpts0, mkpts1)
+
+        rows = create_csv_rows_with_confidence_selection(
+            kp1, kp2, matches, confidences, H4, [img1_path, img2_path], 0, method,
+            num_top_kp=num_top_kp,
+            num_bottom_kp=num_bottom_kp
+        )
+
+        base1 = os.path.splitext(os.path.basename(img1_path))[0]
+        base2 = os.path.splitext(os.path.basename(img2_path))[0]
+        pair_id = f"{base1}_{base2}"
+        csv_name = os.path.join(output_csv_dir, f"{pair_id}_{method.lower()}.csv")
+        save_csv(csv_name, rows)
+
+        img_matches = draw_matches(img1, img2, kp1, kp2, matches)
+        vis_path = os.path.join(output_vis_dir, f"{pair_id}_{method.lower()}.png")
+        cv2.imwrite(vis_path, img_matches)
+
+        print(f"Processed pair {pair_id}: {len(matches)} matches, saved CSV and visualization")

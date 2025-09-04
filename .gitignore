@@ -1,4 +1,6 @@
 data/werdersee-batch2/
-matches_output/
+matches_csv/
 .idea/
+visualizations/
+csv_creator.py
 
