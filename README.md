@@ -67,13 +67,14 @@ python main.py --dir ./images --method loftr --csv_dir ./results --visualize
 
 ## Command Line Arguments
 
-| Argument | Type | Required | Default | Description                                              |
-|----------|------|----------|---------|----------------------------------------------------------|
-| `--dir` | str | ✅ | - | Directory containing input images                        |
-| `--method` | str | ❌ | `akaze` | Feature matching method (`akaze`, `loftr` or `lightglue`) |
-| `--csv_dir` | str | ❌ | `matches_csv` | Directory to save output CSV files                       |
-| `--visualize` | flag | ❌ | `False` | Show match visualizations (press any key to continue)    |
-
+| Argument          | Type | Required | Default       | Description                                                    |
+|-------------------|------|----------|---------------|----------------------------------------------------------------|
+| `--dir`           | str  | ✅ | -             | Directory containing input images                              |
+| `--method`        | str  | ❌ | `akaze`       | Feature matching method (`akaze`, `loftr` or `lightglue`)      |
+| `--csv_dir`       | str  | ❌ | `matches_csv` | Directory to save output CSV files                             |
+| `--visualize`     | flag | ❌ | `False`       | Show match visualizations (press any key to continue)          |
+| `--num_top_kp`    | int  | ❌ | `None`        | Number of keypoints with highest confidence to keep in the CSV |
+| `--num_bottom_kp` | int  | ❌ | `None`        | Number of keypoints with lowest confidence to keep in the CSV  |
 
 ## Output Format
 
@@ -114,8 +115,6 @@ project/
 ├── registration_utils.py   # Utility functions
 ├── requirements.txt        # Dependencies
 ├── README.md              
-├── images/                # Input images directory
-└── matches_csv/           # Output CSV files
 ```
 
 ## Supported Image Formats
