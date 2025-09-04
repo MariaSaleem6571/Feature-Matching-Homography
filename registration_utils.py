@@ -18,15 +18,14 @@ def load_image(path, grayscale=True):
 
 def detect_and_compute(img):
     detector = cv2.AKAZE_create()
-    keypoints, descriptors = detector.detectAndCompute(img, None)
-    return keypoints, descriptors
+    keypoints, _ = detector.detectAndCompute(img, None)
+    return keypoints
 
 
 def match_keypoints(desc1, desc2):
     matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
     matches = matcher.match(desc1, desc2)
 
-    # Compute normalized confidence
     max_dist = max(m.distance for m in matches) if matches else 1.0
     confidences = [1.0 - (m.distance / max_dist) for m in matches]
 
@@ -86,7 +85,6 @@ def detect_and_match_lightglue_superpoint(img1, img2):
         matches01 = rbd(matches01)
 
         matches_tensor = matches01['matches']
-        scores0 = matches01['scores0'][0].cpu().numpy()  # confidence per kp0
 
         if isinstance(matches_tensor, list):
             matches_tensor = np.array(matches_tensor)
@@ -100,12 +98,10 @@ def detect_and_match_lightglue_superpoint(img1, img2):
         valid_matches = matches_tensor[valid_mask]
 
         if len(valid_matches) == 0:
-            return [], [], [], [], [], np.array([]), np.array([]), []
+            return [], [], [], [], [], []
 
         kp0_all = feats0['keypoints'].cpu().numpy()
         kp1_all = feats1['keypoints'].cpu().numpy()
-        desc0_all = feats0['descriptors'].cpu().numpy().T
-        desc1_all = feats1['descriptors'].cpu().numpy().T
 
         match_indices = valid_matches.cpu().numpy()
         mkpts0 = kp0_all[match_indices[:, 0]]
@@ -114,20 +110,22 @@ def detect_and_match_lightglue_superpoint(img1, img2):
     kp1 = [cv2.KeyPoint(x=pt[0], y=pt[1], size=1) for pt in kp0_all]
     kp2 = [cv2.KeyPoint(x=pt[0], y=pt[1], size=1) for pt in kp1_all]
 
-    cv_matches, confidences = [], []
-    for i, (idx0, idx1) in enumerate(match_indices):
+    confidences = []
+    cv_matches = []
+    for idx0, idx1 in match_indices:
         match = cv2.DMatch()
         match.queryIdx = int(idx0)
         match.trainIdx = int(idx1)
-        match.distance = 1.0 - float(scores0[idx0])
         cv_matches.append(match)
-        confidences.append(float(scores0[idx0]))
+        pt0 = kp0_all[idx0]
+        pt1 = kp1_all[idx1]
+        dist = np.linalg.norm(pt0 - pt1)
+        confidences.append(1.0 / (1.0 + dist))
 
-    return kp1, kp2, cv_matches, mkpts0, mkpts1, desc0_all, desc1_all, confidences
+    return kp1, kp2, cv_matches, mkpts0, mkpts1, confidences
 
 
 def rbd(data: dict) -> dict:
-    """Remove batch dimension from dictionary"""
     return {k: v[0] if isinstance(v, torch.Tensor) else v for k, v in data.items()}
 
 
@@ -142,11 +140,31 @@ def compute_4x4_homography_from_matches(mkpts0, mkpts1):
             H4[:3, 3] = H[:, 2]
     return H4
 
+def create_csv_rows_with_confidence_selection(kp1, kp2, matches, confidences, H4, image_files, i, method, num_top_kp=None, num_bottom_kp=None):
+    """
+    Select top and bottom keypoints by confidence, and sort all selected keypoints
+    in descending order of confidence for CSV output.
+    """
+    confidences = np.array(confidences)
+    sorted_indices = np.argsort(confidences)[::-1]  # descending order
 
-def create_csv_rows_without_descriptors(kp1, kp2, matches, confidences, H4, image_files, i, method):
+    selected_indices = []
+
+    if num_top_kp is not None:
+        selected_indices.extend(sorted_indices[:num_top_kp])
+    if num_bottom_kp is not None:
+        selected_indices.extend(sorted_indices[-num_bottom_kp:])
+
+    selected_indices = np.unique(selected_indices)
+    selected_confidences = confidences[selected_indices]
+    # Re-sort selected keypoints in descending order of confidence
+    final_order = selected_indices[np.argsort(selected_confidences)[::-1]]
+
     rows = []
     pair_id = f"{image_files[i].replace('.png', '')}_{image_files[i + 1].replace('.png', '')}"
-    for idx, m in enumerate(matches):
+
+    for idx in final_order:
+        m = matches[idx]
         row = {
             "uuid": str(uuid.uuid4()),
             "image1_index": i + 1,
@@ -167,38 +185,7 @@ def create_csv_rows_without_descriptors(kp1, kp2, matches, confidences, H4, imag
         }
         row.update(homography_vals)
         rows.append(row)
-    return rows
 
-
-def create_csv_rows_with_descriptors(kp1, kp2, desc1, desc2, matches, confidences, H4, image_files, i, method):
-    rows = []
-    pair_id = f"{image_files[i].replace('.png', '')}_{image_files[i + 1].replace('.png', '')}"
-    for idx, m in enumerate(matches):
-        row = {
-            "uuid": str(uuid.uuid4()),
-            "image1_index": i + 1,
-            "image2_index": i + 2,
-            "pair_id": pair_id,
-            "method": method,
-            "x1": kp1[m.queryIdx].pt[0],
-            "y1": kp1[m.queryIdx].pt[1],
-            "x2": kp2[m.trainIdx].pt[0],
-            "y2": kp2[m.trainIdx].pt[1],
-            "confidence": confidences[idx]
-        }
-        desc1_vals = {f"desc1_{k}": float(val) for k, val in enumerate(desc1[m.queryIdx])}
-        desc2_vals = {f"desc2_{k}": float(val) for k, val in enumerate(desc2[m.trainIdx])}
-        row.update(desc1_vals)
-        row.update(desc2_vals)
-
-        homography_vals = {
-            "r11": H4[0, 0], "r12": H4[0, 1], "r13": H4[0, 2], "tx": H4[0, 3],
-            "r21": H4[1, 0], "r22": H4[1, 1], "r23": H4[1, 2], "ty": H4[1, 3],
-            "r31": H4[2, 0], "r32": H4[2, 1], "r33": H4[2, 2], "tz": H4[2, 3],
-            "h41": H4[3, 0], "h42": H4[3, 1], "h43": H4[3, 2], "h44": H4[3, 3],
-        }
-        row.update(homography_vals)
-        rows.append(row)
     return rows
 
 

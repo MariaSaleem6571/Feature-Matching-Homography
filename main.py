@@ -1,6 +1,7 @@
 import os
 import argparse
 from natsort import natsorted
+import cv2
 from registration_utils import *
 
 
@@ -11,6 +12,8 @@ def main():
     parser.add_argument("--visualize", action="store_true", help="Visualize matches if flag is set")
     parser.add_argument("--method", type=str, choices=['akaze', 'loftr', 'lightglue'], default='akaze',
                         help="Feature matching method: 'akaze', 'loftr', or 'lightglue' (default: akaze)")
+    parser.add_argument("--num_top_kp", type=int, default=None, help="Number of keypoints with highest confidence to keep")
+    parser.add_argument("--num_bottom_kp", type=int, default=None, help="Number of keypoints with lowest confidence to keep")
 
     args = parser.parse_args()
     os.makedirs(args.csv_dir, exist_ok=True)
@@ -32,20 +35,20 @@ def main():
         img2 = load_image(img2_path)
 
         if args.method == 'akaze':
-            kp1, desc1 = detect_and_compute(img1)
-            kp2, desc2 = detect_and_compute(img2)
+            kp1 = detect_and_compute(img1)
+            kp2 = detect_and_compute(img2)
+            detector = cv2.AKAZE_create()
+            _, desc1 = detector.compute(img1, kp1)
+            _, desc2 = detector.compute(img2, kp2)
             matches, confidences = match_keypoints(desc1, desc2)
             mkpts0 = [kp1[m.queryIdx].pt for m in matches]
             mkpts1 = [kp2[m.trainIdx].pt for m in matches]
 
         elif args.method == 'loftr':
             kp1, kp2, matches, mkpts0, mkpts1, confidences = detect_and_match_loftr(img1, img2)
-            # dummy descriptors for LoFTR
-            desc1 = np.zeros((len(kp1), 61), dtype=np.uint8)
-            desc2 = np.zeros((len(kp2), 61), dtype=np.uint8)
 
         elif args.method == 'lightglue':
-            kp1, kp2, matches, mkpts0, mkpts1, desc1, desc2, confidences = detect_and_match_lightglue_superpoint(img1, img2)
+            kp1, kp2, matches, mkpts0, mkpts1, confidences = detect_and_match_lightglue_superpoint(img1, img2)
             if len(matches) == 0:
                 print(f"Warning: No matches found for pair {i + 1}")
                 continue
@@ -54,10 +57,11 @@ def main():
 
         H4 = compute_4x4_homography_from_matches(mkpts0, mkpts1)
 
-        if args.method in ['akaze', 'lightglue']:
-            rows = create_csv_rows_with_descriptors(kp1, kp2, desc1, desc2, matches, confidences, H4, image_files, i, args.method)
-        else:  # loftr
-            rows = create_csv_rows_without_descriptors(kp1, kp2, matches, confidences, H4, image_files, i, args.method)
+        rows = create_csv_rows_with_confidence_selection(
+            kp1, kp2, matches, confidences, H4, image_files, i, args.method,
+            num_top_kp=args.num_top_kp,
+            num_bottom_kp=args.num_bottom_kp
+        )
 
         base1 = os.path.splitext(image_files[i])[0]
         base2 = os.path.splitext(image_files[i + 1])[0]
