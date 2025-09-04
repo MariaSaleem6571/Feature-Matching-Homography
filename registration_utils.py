@@ -131,19 +131,6 @@ def rbd(data: dict) -> dict:
     return {k: v[0] if isinstance(v, torch.Tensor) else v for k, v in data.items()}
 
 
-def filter_matches_by_pixel_distance(kp1, kp2, matches, pixel_threshold, confidences=None):
-    filtered, filtered_conf = [], []
-    for idx, m in enumerate(matches):
-        pt1 = np.array(kp1[m.queryIdx].pt)
-        pt2 = np.array(kp2[m.trainIdx].pt)
-        dist = np.linalg.norm(pt1 - pt2)
-        if dist <= pixel_threshold:
-            filtered.append(m)
-            if confidences is not None:
-                filtered_conf.append(confidences[idx])
-    return filtered, filtered_conf
-
-
 def compute_4x4_homography_from_matches(mkpts0, mkpts1):
     H4 = np.eye(4)
     if len(mkpts0) >= 4:
@@ -156,7 +143,7 @@ def compute_4x4_homography_from_matches(mkpts0, mkpts1):
     return H4
 
 
-def create_csv_rows_without_descriptors(kp1, kp2, matches, confidences, H4, image_files, i, method, threshold):
+def create_csv_rows_without_descriptors(kp1, kp2, matches, confidences, H4, image_files, i, method):
     rows = []
     pair_id = f"{image_files[i].replace('.png', '')}_{image_files[i + 1].replace('.png', '')}"
     for idx, m in enumerate(matches):
@@ -166,7 +153,6 @@ def create_csv_rows_without_descriptors(kp1, kp2, matches, confidences, H4, imag
             "image2_index": i + 2,
             "pair_id": pair_id,
             "method": method,
-            "threshold": threshold,
             "x1": kp1[m.queryIdx].pt[0],
             "y1": kp1[m.queryIdx].pt[1],
             "x2": kp2[m.trainIdx].pt[0],
@@ -184,7 +170,7 @@ def create_csv_rows_without_descriptors(kp1, kp2, matches, confidences, H4, imag
     return rows
 
 
-def create_csv_rows_with_descriptors(kp1, kp2, desc1, desc2, matches, confidences, H4, image_files, i, method, threshold):
+def create_csv_rows_with_descriptors(kp1, kp2, desc1, desc2, matches, confidences, H4, image_files, i, method):
     rows = []
     pair_id = f"{image_files[i].replace('.png', '')}_{image_files[i + 1].replace('.png', '')}"
     for idx, m in enumerate(matches):
@@ -194,7 +180,6 @@ def create_csv_rows_with_descriptors(kp1, kp2, desc1, desc2, matches, confidence
             "image2_index": i + 2,
             "pair_id": pair_id,
             "method": method,
-            "threshold": threshold,
             "x1": kp1[m.queryIdx].pt[0],
             "y1": kp1[m.queryIdx].pt[1],
             "x2": kp2[m.trainIdx].pt[0],

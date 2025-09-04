@@ -7,7 +7,6 @@ from registration_utils import *
 def main():
     parser = argparse.ArgumentParser(description="Feature matching for consecutive images in a directory")
     parser.add_argument("--dir", type=str, required=True, help="Directory containing images")
-    parser.add_argument("--threshold", type=float, default=30.0, help="Pixel distance threshold for matches")
     parser.add_argument("--csv_dir", type=str, default="matches_csv", help="Directory to save CSVs")
     parser.add_argument("--visualize", action="store_true", help="Visualize matches if flag is set")
     parser.add_argument("--method", type=str, choices=['akaze', 'loftr', 'lightglue'], default='akaze',
@@ -37,17 +36,12 @@ def main():
             kp1, desc1 = detect_and_compute(img1)
             kp2, desc2 = detect_and_compute(img2)
             matches, confidences = match_keypoints(desc1, desc2)
-            matches, confidences = filter_matches_by_pixel_distance(kp1, kp2, matches, args.threshold, confidences)
             mkpts0 = [kp1[m.queryIdx].pt for m in matches]
             mkpts1 = [kp2[m.trainIdx].pt for m in matches]
 
         elif args.method == 'loftr':
             kp1, kp2, matches, mkpts0, mkpts1, confidences = detect_and_match_loftr(img1, img2)
-            if args.threshold > 0:
-                matches, confidences = filter_matches_by_pixel_distance(kp1, kp2, matches, args.threshold, confidences)
-                mkpts0 = [kp1[m.queryIdx].pt for m in matches]
-                mkpts1 = [kp2[m.trainIdx].pt for m in matches]
-            # dummy descriptors
+            # dummy descriptors for LoFTR
             desc1 = np.zeros((len(kp1), 61), dtype=np.uint8)
             desc2 = np.zeros((len(kp2), 61), dtype=np.uint8)
 
@@ -56,10 +50,6 @@ def main():
             if len(matches) == 0:
                 print(f"Warning: No matches found for pair {i + 1}")
                 continue
-            if args.threshold > 0:
-                matches, confidences = filter_matches_by_pixel_distance(kp1, kp2, matches, args.threshold, confidences)
-                mkpts0 = [kp1[m.queryIdx].pt for m in matches]
-                mkpts1 = [kp2[m.trainIdx].pt for m in matches]
 
         print(f"Pair {i + 1}: {image_files[i]} -> {image_files[i + 1]} | Matches: {len(matches)}")
 
@@ -68,15 +58,15 @@ def main():
 
         # ----------------- Create CSV Rows -----------------
         if args.method in ['akaze', 'lightglue']:
-            rows = create_csv_rows_with_descriptors(kp1, kp2, desc1, desc2, matches, confidences, H4, image_files, i, args.method, args.threshold)
+            rows = create_csv_rows_with_descriptors(kp1, kp2, desc1, desc2, matches, confidences, H4, image_files, i, args.method)
         else:  # loftr
-            rows = create_csv_rows_without_descriptors(kp1, kp2, matches, confidences, H4, image_files, i, args.method, args.threshold)
+            rows = create_csv_rows_without_descriptors(kp1, kp2, matches, confidences, H4, image_files, i, args.method)
 
         # ----------------- Save CSV -----------------
         base1 = os.path.splitext(image_files[i])[0]
         base2 = os.path.splitext(image_files[i + 1])[0]
         pair_id = f"{base1}_{base2}"
-        csv_name = os.path.join(args.csv_dir, f"{pair_id}_{args.method.lower()}_thr{int(args.threshold)}.csv")
+        csv_name = os.path.join(args.csv_dir, f"{pair_id}_{args.method.lower()}.csv")
         save_csv(csv_name, rows)
         print(f"Saved results for pair {pair_id} to {csv_name}")
 
