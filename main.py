@@ -9,7 +9,7 @@ def main():
     parser = argparse.ArgumentParser(description="Feature matching for consecutive images in a directory")
     parser.add_argument("--dir", type=str, required=True, help="Directory containing images")
     parser.add_argument("--csv_dir", type=str, default="matches_csv", help="Directory to save CSVs")
-    parser.add_argument("--visualize", action="store_true", help="Visualize matches if flag is set")
+    parser.add_argument("--vis_dir", type=str, default="matches_visualizations", help="Directory to save match visualizations")
     parser.add_argument("--method", type=str, choices=['akaze', 'loftr', 'lightglue'], default='akaze',
                         help="Feature matching method: 'akaze', 'loftr', or 'lightglue' (default: akaze)")
     parser.add_argument("--num_top_kp", type=int, default=None, help="Number of keypoints with highest confidence to keep")
@@ -17,6 +17,7 @@ def main():
 
     args = parser.parse_args()
     os.makedirs(args.csv_dir, exist_ok=True)
+    os.makedirs(args.vis_dir, exist_ok=True)
 
     image_files = [f for f in os.listdir(args.dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
     image_files = natsorted(image_files)
@@ -70,11 +71,10 @@ def main():
         save_csv(csv_name, rows)
         print(f"Saved results for pair {pair_id} to {csv_name}")
 
-        if args.visualize:
-            img_matches = draw_matches(img1, img2, kp1, kp2, matches)
-            cv2.imshow(f"Matches - {args.method.upper()}", img_matches)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
+        img_matches = draw_matches(img1, img2, kp1, kp2, matches)
+        vis_path = os.path.join(args.vis_dir, f"{pair_id}_{args.method.lower()}.png")
+        cv2.imwrite(vis_path, img_matches)
+        print(f"Saved visualization for pair {pair_id} to {vis_path}")
 
 
 if __name__ == "__main__":

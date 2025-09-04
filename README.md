@@ -7,7 +7,6 @@ This repository provides feature matching and homography estimation for consecut
 - **Method Support**: Choose between AKAZE, LoFTR and Lightglue feature matching
 - **Homography Estimation**: Compute 4x4 homography matrices between image pairs
 - **CSV Export**: Export matches with keypoints and homography data
-- **Visualization**: Optional match visualization
 - **Batch Processing**: Process all consecutive image pairs in a directory
 
 ## Requirements
@@ -62,7 +61,7 @@ python main.py --dir /path/to/images --method lightglue
 
 ### Complete Example with All Options
 ```bash
-python main.py --dir ./images --method loftr --csv_dir ./results --visualize
+python main.py --dir ./images --method loftr --csv_dir ./results --num_top_kp 20 --num_bottom_kp 20
 ```
 
 ## Command Line Arguments
@@ -72,7 +71,6 @@ python main.py --dir ./images --method loftr --csv_dir ./results --visualize
 | `--dir`           | str  | ✅ | -             | Directory containing input images                              |
 | `--method`        | str  | ❌ | `akaze`       | Feature matching method (`akaze`, `loftr` or `lightglue`)      |
 | `--csv_dir`       | str  | ❌ | `matches_csv` | Directory to save output CSV files                             |
-| `--visualize`     | flag | ❌ | `False`       | Show match visualizations (press any key to continue)          |
 | `--num_top_kp`    | int  | ❌ | `None`        | Number of keypoints with highest confidence to keep in the CSV |
 | `--num_bottom_kp` | int  | ❌ | `None`        | Number of keypoints with lowest confidence to keep in the CSV  |
 
