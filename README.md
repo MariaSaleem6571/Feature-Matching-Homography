@@ -62,7 +62,7 @@ python main.py --dir /path/to/images --method lightglue
 
 ### Complete Example with All Options
 ```bash
-python main.py --dir ./images --method loftr --threshold 25.0 --csv_dir ./results --visualize
+python main.py --dir ./images --method loftr --csv_dir ./results --visualize
 ```
 
 ## Command Line Arguments
@@ -71,7 +71,6 @@ python main.py --dir ./images --method loftr --threshold 25.0 --csv_dir ./result
 |----------|------|----------|---------|----------------------------------------------------------|
 | `--dir` | str | ✅ | - | Directory containing input images                        |
 | `--method` | str | ❌ | `akaze` | Feature matching method (`akaze`, `loftr` or `lightglue`) |
-| `--threshold` | float | ❌ | `30.0` | Pixel distance threshold for filtering matches           |
 | `--csv_dir` | str | ❌ | `matches_csv` | Directory to save output CSV files                       |
 | `--visualize` | flag | ❌ | `False` | Show match visualizations (press any key to continue)    |
 
@@ -82,17 +81,17 @@ python main.py --dir ./images --method loftr --threshold 25.0 --csv_dir ./result
 
 #### AKAZE Output
 ```
-uuid, image1_index, image2_index, pair_id, method, threshold, x1, y1, x2, y2, confidence, desc1_0, desc1_1, ..., desc2_0, desc2_1, ..., r11, r12, r13, tx, r21, r22, r23, ty, r31, r32, r33, tz, h41, h42, h43, h44
+uuid, image1_index, image2_index, pair_id, method, x1, y1, x2, y2, confidence, desc1_0, desc1_1, ..., desc2_0, desc2_1, ..., r11, r12, r13, tx, r21, r22, r23, ty, r31, r32, r33, tz, h41, h42, h43, h44
 ```
 
 #### LoFTR Output  
 ```
-uuid, image1_index, image2_index, pair_id, method, threshold, x1, y1, x2, y2, confidence, r11, r12, r13, tx, r21, r22, r23, ty, r31, r32, r33, tz, h41, h42, h43, h44
+uuid, image1_index, image2_index, pair_id, method, x1, y1, x2, y2, confidence, r11, r12, r13, tx, r21, r22, r23, ty, r31, r32, r33, tz, h41, h42, h43, h44
 ```
 
 #### Lightglue Output
 ```
-uuid, image1_index, image2_index, pair_id, method, threshold, x1, y1, x2, y2, confidence, desc1_0, desc1_1, ..., desc2_0, desc2_1, ..., r11, r12, r13, tx, r21, r22, r23, ty, r31, r32, r33, tz, h41, h42, h43, h44
+uuid, image1_index, image2_index, pair_id, method, x1, y1, x2, y2, confidence, desc1_0, desc1_1, ..., desc2_0, desc2_1, ..., r11, r12, r13, tx, r21, r22, r23, ty, r31, r32, r33, tz, h41, h42, h43, h44
 ```
 
 ### Column Descriptions
@@ -100,7 +99,6 @@ uuid, image1_index, image2_index, pair_id, method, threshold, x1, y1, x2, y2, co
 - `image1_index`, `image2_index`: Image pair indices
 - `pair_id`: Concatenated image names
 - `method`: Akaze, Loftr, Lightglue
-- `threshold`: In px.
 - `x1, y1`: Keypoint coordinates in first image
 - `x2, y2`: Keypoint coordinates in second image 
 - `confidence`

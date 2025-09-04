@@ -31,7 +31,6 @@ def main():
         img1 = load_image(img1_path)
         img2 = load_image(img2_path)
 
-        # ----------------- Feature Matching -----------------
         if args.method == 'akaze':
             kp1, desc1 = detect_and_compute(img1)
             kp2, desc2 = detect_and_compute(img2)
@@ -53,16 +52,13 @@ def main():
 
         print(f"Pair {i + 1}: {image_files[i]} -> {image_files[i + 1]} | Matches: {len(matches)}")
 
-        # ----------------- Homography -----------------
         H4 = compute_4x4_homography_from_matches(mkpts0, mkpts1)
 
-        # ----------------- Create CSV Rows -----------------
         if args.method in ['akaze', 'lightglue']:
             rows = create_csv_rows_with_descriptors(kp1, kp2, desc1, desc2, matches, confidences, H4, image_files, i, args.method)
         else:  # loftr
             rows = create_csv_rows_without_descriptors(kp1, kp2, matches, confidences, H4, image_files, i, args.method)
 
-        # ----------------- Save CSV -----------------
         base1 = os.path.splitext(image_files[i])[0]
         base2 = os.path.splitext(image_files[i + 1])[0]
         pair_id = f"{base1}_{base2}"
@@ -70,7 +66,6 @@ def main():
         save_csv(csv_name, rows)
         print(f"Saved results for pair {pair_id} to {csv_name}")
 
-        # ----------------- Visualization -----------------
         if args.visualize:
             img_matches = draw_matches(img1, img2, kp1, kp2, matches)
             cv2.imshow(f"Matches - {args.method.upper()}", img_matches)
