@@ -7,6 +7,7 @@ import torch
 from LightGlue.lightglue import LightGlue
 from LightGlue.lightglue.superpoint import SuperPoint
 import os
+import json
 
 
 def load_image(path, grayscale=True):
@@ -26,16 +27,13 @@ def detect_and_compute(img):
 def match_keypoints(desc1, desc2):
     matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
     matches = matcher.match(desc1, desc2)
-
     max_dist = max(m.distance for m in matches) if matches else 1.0
     confidences = [1.0 - (m.distance / max_dist) for m in matches]
-
     return matches, confidences
 
 
 def detect_and_match_loftr(img1, img2):
     matcher = LoFTR(pretrained='outdoor')
-
     img1_tensor = torch.from_numpy(img1).float() / 255.0
     img2_tensor = torch.from_numpy(img2).float() / 255.0
     img1_tensor = img1_tensor.unsqueeze(0).unsqueeze(0)
@@ -66,7 +64,6 @@ def detect_and_match_loftr(img1, img2):
 
 def detect_and_match_lightglue_superpoint(img1, img2):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
     superpoint = SuperPoint(pretrained=True).eval().to(device)
     lightglue = LightGlue(features='superpoint', pretrained=True).eval().to(device)
 
@@ -78,7 +75,6 @@ def detect_and_match_lightglue_superpoint(img1, img2):
     with torch.no_grad():
         feats0 = superpoint({'image': img1_tensor})
         feats1 = superpoint({'image': img2_tensor})
-
         matches01 = lightglue({'image0': feats0, 'image1': feats1})
 
         feats0 = rbd(feats0)
@@ -103,7 +99,6 @@ def detect_and_match_lightglue_superpoint(img1, img2):
 
         kp0_all = feats0['keypoints'].cpu().numpy()
         kp1_all = feats1['keypoints'].cpu().numpy()
-
         match_indices = valid_matches.cpu().numpy()
         mkpts0 = kp0_all[match_indices[:, 0]]
         mkpts1 = kp1_all[match_indices[:, 1]]
@@ -143,27 +138,19 @@ def compute_4x4_homography_from_matches(mkpts0, mkpts1):
 
 
 def create_csv_rows_with_confidence_selection(kp1, kp2, matches, confidences, H4, image_files, i, method, num_top_kp=None, num_bottom_kp=None):
-    """
-    Select top and bottom keypoints by confidence, and sort all selected keypoints
-    in descending order of confidence for CSV output.
-    """
     confidences = np.array(confidences)
     sorted_indices = np.argsort(confidences)[::-1]
-
     selected_indices = []
-
     if num_top_kp is not None:
         selected_indices.extend(sorted_indices[:num_top_kp])
     if num_bottom_kp is not None:
         selected_indices.extend(sorted_indices[-num_bottom_kp:])
-
     selected_indices = np.unique(selected_indices)
     selected_confidences = confidences[selected_indices]
     final_order = selected_indices[np.argsort(selected_confidences)[::-1]]
 
     rows = []
-    pair_id = f"{image_files[i].replace('.png', '')}_{image_files[i + 1].replace('.png', '')}"
-
+    pair_id = f"{os.path.basename(image_files[0])}_{os.path.basename(image_files[1])}"
     for idx in final_order:
         m = matches[idx]
         row = {
@@ -186,7 +173,6 @@ def create_csv_rows_with_confidence_selection(kp1, kp2, matches, confidences, H4
         }
         row.update(homography_vals)
         rows.append(row)
-
     return rows
 
 
@@ -206,18 +192,17 @@ def draw_matches(img1, img2, kp1, kp2, matches, mask=None):
                            flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
 
 
-def process_image_pairs_from_csv(csv_file, output_csv_dir, output_vis_dir, method='akaze', num_top_kp=None, num_bottom_kp=None):
-    os.makedirs(output_csv_dir, exist_ok=True)
-    os.makedirs(output_vis_dir, exist_ok=True)
+def process_image_pairs_and_save_logs(
+    image_pairs, logs_dir, vis_dir, keypoints_dir,
+    method='akaze', num_top_kp=None, num_bottom_kp=None
+):
+    os.makedirs(logs_dir, exist_ok=True)
+    os.makedirs(vis_dir, exist_ok=True)
+    os.makedirs(keypoints_dir, exist_ok=True)
 
-    with open(csv_file, 'r', newline='') as f:
-        reader = csv.DictReader(f)
-        pairs = list(reader)
+    experiment_rows = []
 
-    for idx, pair in enumerate(pairs):
-        img1_path = pair['image1']
-        img2_path = pair['image2']
-
+    for i, (img1_path, img2_path) in enumerate(image_pairs):
         img1 = load_image(img1_path)
         img2 = load_image(img2_path)
 
@@ -237,25 +222,49 @@ def process_image_pairs_from_csv(csv_file, output_csv_dir, output_vis_dir, metho
         elif method == 'lightglue':
             kp1, kp2, matches, mkpts0, mkpts1, confidences = detect_and_match_lightglue_superpoint(img1, img2)
             if len(matches) == 0:
-                print(f"Warning: No matches found for pair {idx + 1}")
+                print(f"Warning: No matches found for pair {i + 1}")
                 continue
 
         H4 = compute_4x4_homography_from_matches(mkpts0, mkpts1)
 
+        pair_uuid = str(uuid.uuid4())
+
         rows = create_csv_rows_with_confidence_selection(
-            kp1, kp2, matches, confidences, H4, [img1_path, img2_path], 0, method,
+            kp1, kp2, matches, confidences, H4,
+            [img1_path, img2_path], 0, method,
             num_top_kp=num_top_kp,
             num_bottom_kp=num_bottom_kp
         )
+        for row in rows:
+            for h in ['r11','r12','r13','tx','r21','r22','r23','ty','r31','r32','r33','tz','h41','h42','h43','h44']:
+                row.pop(h, None)
 
-        base1 = os.path.splitext(os.path.basename(img1_path))[0]
-        base2 = os.path.splitext(os.path.basename(img2_path))[0]
-        pair_id = f"{base1}_{base2}"
-        csv_name = os.path.join(output_csv_dir, f"{pair_id}_{method.lower()}.csv")
-        save_csv(csv_name, rows)
+        base_kp_csv = f"keypoints_{pair_uuid}.csv"
+        kp_csv_path = os.path.join(keypoints_dir, base_kp_csv)
+        save_csv(kp_csv_path, rows)
 
         img_matches = draw_matches(img1, img2, kp1, kp2, matches)
-        vis_path = os.path.join(output_vis_dir, f"{pair_id}_{method.lower()}.png")
+        vis_path = os.path.join(vis_dir, f"vis_{pair_uuid}.png")
         cv2.imwrite(vis_path, img_matches)
 
-        print(f"Processed pair {pair_id}: {len(matches)} matches, saved CSV and visualization")
+        experiment_row = {
+            "uuid": pair_uuid,
+            "image1_name": os.path.basename(img1_path),
+            "image2_name": os.path.basename(img2_path),
+            "keypoints_csv_path": kp_csv_path,
+            "visualization_path": vis_path,
+            **{
+                "r11": H4[0,0], "r12": H4[0,1], "r13": H4[0,2], "tx": H4[0,3],
+                "r21": H4[1,0], "r22": H4[1,1], "r23": H4[1,2], "ty": H4[1,3],
+                "r31": H4[2,0], "r32": H4[2,1], "r33": H4[2,2], "tz": H4[2,3],
+                "h41": H4[3,0], "h42": H4[3,1], "h43": H4[3,2], "h44": H4[3,3],
+            }
+        }
+        experiment_rows.append(experiment_row)
+
+        print(f"Processed pair {img1_path} -> {img2_path} | {len(matches)} matches")
+
+    if experiment_rows:
+        exp_log_path = os.path.join(logs_dir, f"experiment_log.csv")
+        save_csv(exp_log_path, experiment_rows)
+        print(f"Saved experiment log to {exp_log_path}")
