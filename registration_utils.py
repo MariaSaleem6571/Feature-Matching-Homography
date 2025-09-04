@@ -4,6 +4,8 @@ import csv
 import uuid
 from kornia.feature import LoFTR
 import torch
+from LightGlue.lightglue import LightGlue
+from LightGlue.lightglue.superpoint import SuperPoint
 
 def load_image(path, grayscale=True):
     flag = cv2.IMREAD_GRAYSCALE if grayscale else cv2.IMREAD_COLOR
@@ -67,6 +69,87 @@ def detect_and_match_loftr(img1, img2):
         matches.append(match)
 
     return kp1, kp2, matches, mkpts0, mkpts1
+
+
+def detect_and_match_lightglue_superpoint(img1, img2):
+    """
+    LightGlue + SuperPoint feature detection and matching
+    """
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    superpoint = SuperPoint(pretrained=True).eval().to(device)
+    lightglue = LightGlue(features='superpoint', pretrained=True).eval().to(device)
+
+    img1_tensor = torch.from_numpy(img1).float() / 255.0
+    img2_tensor = torch.from_numpy(img2).float() / 255.0
+
+    img1_tensor = img1_tensor.unsqueeze(0).unsqueeze(0).to(device)  # [1, 1, H, W]
+    img2_tensor = img2_tensor.unsqueeze(0).unsqueeze(0).to(device)  # [1, 1, H, W]
+
+    with torch.no_grad():
+        feats0 = superpoint({'image': img1_tensor})
+        feats1 = superpoint({'image': img2_tensor})
+
+        matches01 = lightglue({'image0': feats0, 'image1': feats1})
+
+        # Remove batch dimension
+        feats0 = rbd(feats0)
+        feats1 = rbd(feats1)
+        matches01 = rbd(matches01)
+
+        # Get the matches
+        matches_tensor = matches01['matches']
+
+        # Normalize to torch tensor of shape [M,2]
+        if isinstance(matches_tensor, list):
+            # Handle nested lists
+            matches_tensor = np.array(matches_tensor)
+            if matches_tensor.ndim > 2:
+                matches_tensor = matches_tensor[0]  # remove batch dimension if present
+            matches_tensor = torch.as_tensor(matches_tensor, dtype=torch.long, device=device)
+        elif isinstance(matches_tensor, np.ndarray):
+            matches_tensor = torch.as_tensor(matches_tensor, dtype=torch.long, device=device)
+
+        # Now safe to filter
+        valid_mask = (matches_tensor >= 0).all(dim=1)
+        valid_matches = matches_tensor[valid_mask]
+
+        if len(valid_matches) == 0:
+            # No valid matches found
+            return [], [], [], [], [], np.array([]), np.array([])
+
+        # Get keypoints for all detected features
+        kp0_all = feats0['keypoints'].cpu().numpy()
+        kp1_all = feats1['keypoints'].cpu().numpy()
+
+        # Get descriptors for all detected features
+        desc0_all = feats0['descriptors'].cpu().numpy().T  # Transpose to match expected format
+        desc1_all = feats1['descriptors'].cpu().numpy().T
+
+        # Get matched keypoints using the valid match indices
+        match_indices = valid_matches.cpu().numpy()
+        mkpts0 = kp0_all[match_indices[:, 0]]
+        mkpts1 = kp1_all[match_indices[:, 1]]
+
+    # Convert all keypoints to cv2.KeyPoint format
+    kp1 = [cv2.KeyPoint(x=pt[0], y=pt[1], size=1) for pt in kp0_all]
+    kp2 = [cv2.KeyPoint(x=pt[0], y=pt[1], size=1) for pt in kp1_all]
+
+    # Create cv2.DMatch objects for the valid matches
+    cv_matches = []
+    for i, (idx0, idx1) in enumerate(match_indices):
+        match = cv2.DMatch()
+        match.queryIdx = int(idx0)
+        match.trainIdx = int(idx1)
+        match.distance = 0.1  # LightGlue doesn't provide explicit distances
+        cv_matches.append(match)
+
+    return kp1, kp2, cv_matches, mkpts0, mkpts1, desc0_all, desc1_all
+
+
+def rbd(data: dict) -> dict:
+    """Remove batch dimension from dictionary"""
+    return {k: v[0] if isinstance(v, torch.Tensor) else v for k, v in data.items()}
 
 def filter_matches_by_pixel_distance(kp1, kp2, matches, pixel_threshold):
     filtered = []
