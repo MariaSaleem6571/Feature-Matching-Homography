@@ -82,25 +82,28 @@ python main.py --dir ./images --method loftr --threshold 25.0 --csv_dir ./result
 
 #### AKAZE Output
 ```
-uuid, image1_index, image2_index, pair_id, x1, y1, x2, y2, desc1_0, desc1_1, ..., desc2_0, desc2_1, ..., r11, r12, r13, tx, r21, r22, r23, ty, r31, r32, r33, tz, h41, h42, h43, h44
+uuid, image1_index, image2_index, pair_id, method, threshold, x1, y1, x2, y2, confidence, desc1_0, desc1_1, ..., desc2_0, desc2_1, ..., r11, r12, r13, tx, r21, r22, r23, ty, r31, r32, r33, tz, h41, h42, h43, h44
 ```
 
 #### LoFTR Output  
 ```
-uuid, image1_index, image2_index, pair_id, x1, y1, x2, y2, r11, r12, r13, tx, r21, r22, r23, ty, r31, r32, r33, tz, h41, h42, h43, h44
+uuid, image1_index, image2_index, pair_id, method, threshold, x1, y1, x2, y2, confidence, r11, r12, r13, tx, r21, r22, r23, ty, r31, r32, r33, tz, h41, h42, h43, h44
 ```
 
 #### Lightglue Output
 ```
-uuid, image1_index, image2_index, pair_id, x1, y1, x2, y2, desc1_0, desc1_1, ..., desc2_0, desc2_1, ..., r11, r12, r13, tx, r21, r22, r23, ty, r31, r32, r33, tz, h41, h42, h43, h44
+uuid, image1_index, image2_index, pair_id, method, threshold, x1, y1, x2, y2, confidence, desc1_0, desc1_1, ..., desc2_0, desc2_1, ..., r11, r12, r13, tx, r21, r22, r23, ty, r31, r32, r33, tz, h41, h42, h43, h44
 ```
 
 ### Column Descriptions
 - `uuid`: Unique identifier for each match
 - `image1_index`, `image2_index`: Image pair indices
 - `pair_id`: Concatenated image names
+- `method`: Akaze, Loftr, Lightglue
+- `threshold`: In px.
 - `x1, y1`: Keypoint coordinates in first image
-- `x2, y2`: Keypoint coordinates in second image  
+- `x2, y2`: Keypoint coordinates in second image 
+- `confidence`
 - `desc1_*`, `desc2_*`: Feature descriptors (AKAZE and Lightglue only)
 - `r11-r33, tx, ty, tz`: Homography matrix elements
 - `h41-h44`: Additional homography matrix elements
@@ -123,44 +126,3 @@ project/
 - `.jpg` 
 - `.jpeg`
 
-## Examples
-
-## Troubleshooting
-
-### Common Issues
-
-1. **"Unresolved reference 'torch'"**
-   ```bash
-   pip install torch torchvision torchaudio
-   ```
-
-2. **"No module named 'kornia'"**
-   ```bash
-   pip install kornia
-   ```
-
-3. **Out of memory errors with LoFTR**
-   - Use smaller images
-   - Process fewer images at once
-   - Switch to AKAZE method
-
-4. **No matches found**
-   - Increase `--threshold` value
-   - Check image overlap
-   - Try different method (AKAZE vs LoFTR vs LightGlue)
-
-## Performance Tips
-
-- **For speed**: Use AKAZE method
-- **For best balance**: Use LightGlue+SuperPoint method  
-- **For quality**: Use LoFTR method  
-- **For large datasets**: Use AKAZE or LightGlue+SuperPoint
-- **GPU acceleration**: Install CUDA-enabled PyTorch for LoFTR and LightGlue
-
-## License
-
-[Add your license information here]
-
-## Contributing
-
-[Add contribution guidelines here]
