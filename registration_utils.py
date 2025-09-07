@@ -140,12 +140,14 @@ def compute_4x4_homography_from_matches(mkpts0, mkpts1):
 def create_csv_rows_with_confidence_selection(kp1, kp2, matches, confidences, H4, image_files, i, method, num_top_kp=None, num_bottom_kp=None):
     confidences = np.array(confidences)
     sorted_indices = np.argsort(confidences)[::-1]
-    selected_indices = []
+
+    top_indices, bottom_indices = [], []
     if num_top_kp is not None:
-        selected_indices.extend(sorted_indices[:num_top_kp])
+        top_indices = sorted_indices[:num_top_kp].tolist()
     if num_bottom_kp is not None:
-        selected_indices.extend(sorted_indices[-num_bottom_kp:])
-    selected_indices = np.unique(selected_indices)
+        bottom_indices = sorted_indices[-num_bottom_kp:].tolist()
+
+    selected_indices = np.unique(top_indices + bottom_indices)
     selected_confidences = confidences[selected_indices]
     final_order = selected_indices[np.argsort(selected_confidences)[::-1]]
 
@@ -173,7 +175,8 @@ def create_csv_rows_with_confidence_selection(kp1, kp2, matches, confidences, H4
         }
         row.update(homography_vals)
         rows.append(row)
-    return rows
+
+    return rows, top_indices, bottom_indices
 
 
 def save_csv(csv_path, rows):
@@ -186,10 +189,28 @@ def save_csv(csv_path, rows):
         writer.writerows(rows)
 
 
-def draw_matches(img1, img2, kp1, kp2, matches, mask=None):
-    matchesMask = mask.ravel().tolist() if mask is not None else None
-    return cv2.drawMatches(img1, kp1, img2, kp2, matches, None, matchesMask=matchesMask,
-                           flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+def draw_selected_matches(img1, img2, kp1, kp2, matches, top_indices, bottom_indices):
+    vis = cv2.hconcat([
+        cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR),
+        cv2.cvtColor(img2, cv2.COLOR_GRAY2BGR)
+    ])
+    h, w = img1.shape[:2]
+
+    for idx in top_indices:
+        m = matches[idx]
+        pt1 = tuple(map(int, kp1[m.queryIdx].pt))
+        pt2 = tuple(map(int, kp2[m.trainIdx].pt))
+        pt2_shifted = (int(pt2[0] + w), int(pt2[1]))
+        cv2.line(vis, pt1, pt2_shifted, (0, 255, 0), 2)
+
+    for idx in bottom_indices:
+        m = matches[idx]
+        pt1 = tuple(map(int, kp1[m.queryIdx].pt))
+        pt2 = tuple(map(int, kp2[m.trainIdx].pt))
+        pt2_shifted = (int(pt2[0] + w), int(pt2[1]))
+        cv2.line(vis, pt1, pt2_shifted, (0, 0, 255), 2)
+
+    return vis
 
 
 def process_image_pairs_and_save_logs(
@@ -229,7 +250,7 @@ def process_image_pairs_and_save_logs(
 
         pair_uuid = str(uuid.uuid4())
 
-        rows = create_csv_rows_with_confidence_selection(
+        rows, top_indices, bottom_indices = create_csv_rows_with_confidence_selection(
             kp1, kp2, matches, confidences, H4,
             [img1_path, img2_path], 0, method,
             num_top_kp=num_top_kp,
@@ -243,7 +264,7 @@ def process_image_pairs_and_save_logs(
         kp_csv_path = os.path.join(keypoints_dir, base_kp_csv)
         save_csv(kp_csv_path, rows)
 
-        img_matches = draw_matches(img1, img2, kp1, kp2, matches)
+        img_matches = draw_selected_matches(img1, img2, kp1, kp2, matches, top_indices, bottom_indices)
         vis_path = os.path.join(vis_dir, f"vis_{pair_uuid}.png")
         cv2.imwrite(vis_path, img_matches)
 

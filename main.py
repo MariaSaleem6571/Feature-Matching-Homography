@@ -1,6 +1,8 @@
 import os
 import argparse
+import csv
 from natsort import natsorted
+import cv2
 from registration_utils import *
 
 
@@ -13,8 +15,8 @@ def main():
     parser.add_argument("--vis_dir", type=str, default="visualizations", help="Directory to save visualizations")
     parser.add_argument("--method", type=str, choices=['akaze', 'loftr', 'lightglue'], default='akaze',
                         help="Feature matching method: 'akaze', 'loftr', or 'lightglue'")
-    parser.add_argument("--num_top_kp", type=int, default=None, help="Number of keypoints with highest confidence to keep")
-    parser.add_argument("--num_bottom_kp", type=int, default=None, help="Number of keypoints with lowest confidence to keep")
+    parser.add_argument("--num_top_kp", type=int, default=None, help="Number of keypoints with highest confidence to keep (green)")
+    parser.add_argument("--num_bottom_kp", type=int, default=None, help="Number of keypoints with lowest confidence to keep (red)")
 
     args = parser.parse_args()
 
