@@ -1,7 +1,6 @@
 data/werdersee-batch2/
-experiment_logs/
 .idea/
-keypoints_csvs/
-visualizations/
 csv_creator.py
+dataset/
+
 
