@@ -203,25 +203,20 @@ def draw_selected_matches(img1, img2, kp1, kp2, matches, top_indices, bottom_ind
     ])
     h, w = img1.shape[:2]
 
-    # Draw top confidence matches in green with thin lines
     for idx in top_indices:
         m = matches[idx]
         pt1 = tuple(map(int, kp1[m.queryIdx].pt))
         pt2 = tuple(map(int, kp2[m.trainIdx].pt))
         pt2_shifted = (int(pt2[0] + w), int(pt2[1]))
-        cv2.line(vis, pt1, pt2_shifted, (0, 255, 0), line_thickness)
-        # Optional: Add small circles at keypoint locations
         cv2.circle(vis, pt1, 2, (0, 255, 0), -1)
         cv2.circle(vis, pt2_shifted, 2, (0, 255, 0), -1)
 
-    # Draw bottom confidence matches in red with thin lines
     for idx in bottom_indices:
         m = matches[idx]
         pt1 = tuple(map(int, kp1[m.queryIdx].pt))
         pt2 = tuple(map(int, kp2[m.trainIdx].pt))
         pt2_shifted = (int(pt2[0] + w), int(pt2[1]))
         cv2.line(vis, pt1, pt2_shifted, (0, 0, 255), line_thickness)
-        # Optional: Add small circles at keypoint locations
         cv2.circle(vis, pt1, 2, (0, 0, 255), -1)
         cv2.circle(vis, pt2_shifted, 2, (0, 0, 255), -1)
 
@@ -283,7 +278,6 @@ def process_image_pairs_and_save_logs(
         kp_csv_path = os.path.join(keypoints_dir, base_kp_csv)
         save_csv(kp_csv_path, rows)
 
-        # Use thinner lines (thickness=1 instead of 2)
         img_matches = draw_selected_matches(img1, img2, kp1, kp2, matches, top_indices, bottom_indices,
                                             line_thickness=1)
         vis_path = os.path.join(vis_dir, f"vis_{pair_uuid}.png")

@@ -32,14 +32,12 @@ def main():
     if args.pairs_csv:
         print(f"Processing image pairs from CSV: {args.pairs_csv}")
 
-        # Get all images from the base directory
         if args.image_base_dir:
             all_image_files = [f for f in os.listdir(args.image_base_dir)
                                if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
             all_image_files = natsorted(all_image_files)
             print(f"Found {len(all_image_files)} images in directory: {all_image_files}")
 
-        # Generate all sequential pairs
         if args.process_all_pairs and args.image_base_dir:
             print("Generating all sequential image pairs...")
             image_pairs = []
@@ -55,7 +53,6 @@ def main():
             print(f"Generated {len(image_pairs)} image pairs for processing")
 
         else:
-            # Original CSV processing logic
             image_pairs = []
 
             with open(args.pairs_csv, 'r', newline='') as f:
@@ -128,14 +125,12 @@ def main():
         return
 
     if args.process_all_pairs:
-        # Generate all possible pairs
         image_pairs = []
         for i in range(len(image_files)):
             for j in range(i + 1, len(image_files)):
                 image_pairs.append((image_files[i], image_files[j]))
         print(f"Processing all {len(image_pairs)} possible image pairs")
     else:
-        # Only consecutive pairs
         image_pairs = [(image_files[i], image_files[i + 1]) for i in range(len(image_files) - 1)]
         print(f"Processing {len(image_pairs)} consecutive image pairs")
 
