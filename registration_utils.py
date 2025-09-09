@@ -192,10 +192,10 @@ def save_csv(csv_path, rows):
 
 def draw_selected_matches(img1, img2, kp1, kp2, matches, top_indices, bottom_indices, line_thickness=1):
     """
-    Draw selected matches with thinner lines for better visualization.
+    Draw selected matches with lines connecting corresponding keypoints between images.
 
     Args:
-        line_thickness (int): Thickness of the lines (default: 1, was previously 2)
+        line_thickness (int): Thickness of the lines (default: 1)
     """
     vis = cv2.hconcat([
         cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR),
@@ -208,6 +208,8 @@ def draw_selected_matches(img1, img2, kp1, kp2, matches, top_indices, bottom_ind
         pt1 = tuple(map(int, kp1[m.queryIdx].pt))
         pt2 = tuple(map(int, kp2[m.trainIdx].pt))
         pt2_shifted = (int(pt2[0] + w), int(pt2[1]))
+
+        cv2.line(vis, pt1, pt2_shifted, (0, 255, 0), line_thickness)
         cv2.circle(vis, pt1, 2, (0, 255, 0), -1)
         cv2.circle(vis, pt2_shifted, 2, (0, 255, 0), -1)
 
@@ -216,6 +218,7 @@ def draw_selected_matches(img1, img2, kp1, kp2, matches, top_indices, bottom_ind
         pt1 = tuple(map(int, kp1[m.queryIdx].pt))
         pt2 = tuple(map(int, kp2[m.trainIdx].pt))
         pt2_shifted = (int(pt2[0] + w), int(pt2[1]))
+
         cv2.line(vis, pt1, pt2_shifted, (0, 0, 255), line_thickness)
         cv2.circle(vis, pt1, 2, (0, 0, 255), -1)
         cv2.circle(vis, pt2_shifted, 2, (0, 0, 255), -1)
